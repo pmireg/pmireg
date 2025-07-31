@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Inquiry System - Student Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --accent-color: #4895ef;
+            --light-color: #f8f9fa;
+            --dark-color: #212529;
+            --success-color: #4bb543;
+            --error-color: #ff3333;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: var(--dark-color);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .tab-btn {
+            padding: 15px 30px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--dark-color);
+            transition: all 0.3s ease;
+            flex: 1;
+            text-align: center;
+        }
+        
+        .tab-btn.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border 0.3s ease;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            border-color: var(--accent-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+        
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+        
+        .btn:hover {
+            background-color: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+        
+        .btn-block {
+            display: block;
+            width: 100%;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .alert-success {
+            background-color: rgba(75, 181, 67, 0.2);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+        
+        .alert-error {
+            background-color: rgba(255, 51, 51, 0.2);
+            color: var(--error-color);
+            border: 1px solid var(--error-color);
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab-btn {
+                padding: 12px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Class Inquiry System</h1>
+            <p class="subtitle">Send your inquiries and book appointments with teachers</p>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="inquiry">Send Inquiry</button>
+            <button class="tab-btn" data-tab="appointment">Book Appointment</button>
+        </div>
+        
+        <div id="inquiry" class="tab-content active">
+            <div id="inquiry-alert" class="alert"></div>
+            <form id="inquiry-form">
+                <div class="form-group">
+                    <label for="inquiry-name">Student's Full Name</label>
+                    <input type="text" id="inquiry-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="inquiry-class">Class/Grade</label>
+                    <input type="text" id="inquiry-class" required>
+                </div>
+                <div class="form-group">
+                    <label for="inquiry-email">Your Email (for response)</label>
+                    <input type="email" id="inquiry-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="inquiry-message">Your Inquiry</label>
+                    <textarea id="inquiry-message" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-block">Send Inquiry</button>
+            </form>
+        </div>
+        
+        <div id="appointment" class="tab-content">
+            <div id="appointment-alert" class="alert"></div>
+            <form id="appointment-form">
+                <div class="form-group">
+                    <label for="appointment-name">Student's Full Name</label>
+                    <input type="text" id="appointment-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="appointment-class">Class/Grade</label>
+                    <input type="text" id="appointment-class" required>
+                </div>
+                <div class="form-group">
+                    <label for="appointment-email">Your Email (for confirmation)</label>
+                    <input type="email" id="appointment-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="appointment-reason">Reason for Appointment</label>
+                    <textarea id="appointment-reason" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-block">Request Appointment</button>
+            </form>
+        </div>
+    </div>
+    
+    <footer>
+        <div class="container">
+            <p>&copy; 2023 Class Inquiry System. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCZGlSN6qQT0W48uTPPaZxC-pu1fL8bjtY",
+            authDomain: "classbookingsystem-7201e.firebaseapp.com",
+            projectId: "classbookingsystem-7201e",
+            storageBucket: "classbookingsystem-7201e.appspot.com",
+            messagingSenderId: "830823823368",
+            appId: "1:830823823368:web:ffc1dfc326fe93d33439bd"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        
+        // Tab functionality
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabId = btn.getAttribute('data-tab');
+                
+                tabBtns.forEach(b => b.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                
+                btn.classList.add('active');
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+        
+        // Handle inquiry form submission
+        const inquiryForm = document.getElementById('inquiry-form');
+        const inquiryAlert = document.getElementById('inquiry-alert');
+        
+        inquiryForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('inquiry-name').value;
+            const studentClass = document.getElementById('inquiry-class').value;
+            const email = document.getElementById('inquiry-email').value;
+            const message = document.getElementById('inquiry-message').value;
+            
+            const inquiryData = {
+                name,
+                class: studentClass,
+                email, // This will be stored in Firebase despite the requirement (needed for admin to reply)
+                message,
+                status: 'pending',
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+            
+            // Push data to Firebase
+            database.ref('inquiries').push(inquiryData)
+                .then(() => {
+                    inquiryAlert.textContent = 'Your inquiry has been sent successfully!';
+                    inquiryAlert.classList.remove('alert-error');
+                    inquiryAlert.classList.add('alert-success');
+                    inquiryAlert.style.display = 'block';
+                    inquiryForm.reset();
+                    
+                    setTimeout(() => {
+                        inquiryAlert.style.display = 'none';
+                    }, 5000);
+                })
+                .catch((error) => {
+                    inquiryAlert.textContent = 'Error sending inquiry. Please try again.';
+                    inquiryAlert.classList.remove('alert-success');
+                    inquiryAlert.classList.add('alert-error');
+                    inquiryAlert.style.display = 'block';
+                    
+                    setTimeout(() => {
+                        inquiryAlert.style.display = 'none';
+                    }, 5000);
+                });
+        });
+        
+        // Handle appointment form submission
+        const appointmentForm = document.getElementById('appointment-form');
+        const appointmentAlert = document.getElementById('appointment-alert');
+        
+        appointmentForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('appointment-name').value;
+            const studentClass = document.getElementById('appointment-class').value;
+            const email = document.getElementById('appointment-email').value;
+            const reason = document.getElementById('appointment-reason').value;
+            
+            const appointmentData = {
+                name,
+                class: studentClass,
+                email, // This will be stored in Firebase despite the requirement (needed for admin to confirm)
+                reason,
+                status: 'requested',
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+            
+            // Push data to Firebase
+            database.ref('appointments').push(appointmentData)
+                .then(() => {
+                    appointmentAlert.textContent = 'Your appointment request has been sent successfully!';
+                    appointmentAlert.classList.remove('alert-error');
+                    appointmentAlert.classList.add('alert-success');
+                    appointmentAlert.style.display = 'block';
+                    appointmentForm.reset();
+                    
+                    setTimeout(() => {
+                        appointmentAlert.style.display = 'none';
+                    }, 5000);
+                })
+                .catch((error) => {
+                    appointmentAlert.textContent = 'Error sending appointment request. Please try again.';
+                    appointmentAlert.classList.remove('alert-success');
+                    appointmentAlert.classList.add('alert-error');
+                    appointmentAlert.style.display = 'block';
+                    
+                    setTimeout(() => {
+                        appointmentAlert.style.display = 'none';
+                    }, 5000);
+                });
+        });
+    </script>
+</body>
+</html>

@@ -176,6 +176,65 @@
             border: 1px solid var(--error-color);
         }
         
+        /* Responses Tab Styles */
+        .response-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .response-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .response-title {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .response-date {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .response-content {
+            margin-top: 10px;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-top: 10px;
+        }
+        
+        .status-pending {
+            background-color: #FFF3CD;
+            color: #856404;
+        }
+        
+        .status-approved {
+            background-color: #D4EDDA;
+            color: #155724;
+        }
+        
+        .status-rejected {
+            background-color: #F8D7DA;
+            color: #721C24;
+        }
+        
+        .status-replied {
+            background-color: #D1ECF1;
+            color: #0C5460;
+        }
+        
         footer {
             text-align: center;
             padding: 20px;
@@ -210,6 +269,7 @@
         <div class="tabs">
             <button class="tab-btn active" data-tab="inquiry">Send Inquiry</button>
             <button class="tab-btn" data-tab="appointment">Book Appointment</button>
+            <button class="tab-btn" data-tab="responses">My Responses</button>
         </div>
         
         <div id="inquiry" class="tab-content active">
@@ -257,6 +317,20 @@
                 <button type="submit" class="btn btn-block">Request Appointment</button>
             </form>
         </div>
+        
+        <div id="responses" class="tab-content">
+            <h2>My Inquiry Responses</h2>
+            <div id="inquiry-responses">
+                <!-- Inquiry responses will be loaded here -->
+                <p id="no-inquiry-responses">No inquiry responses yet.</p>
+            </div>
+            
+            <h2 style="margin-top: 30px;">My Appointment Status</h2>
+            <div id="appointment-responses">
+                <!-- Appointment responses will be loaded here -->
+                <p id="no-appointment-responses">No appointment updates yet.</p>
+            </div>
+        </div>
     </div>
     
     <footer>
@@ -270,6 +344,7 @@
         const firebaseConfig = {
             apiKey: "AIzaSyCZGlSN6qQT0W48uTPPaZxC-pu1fL8bjtY",
             authDomain: "classbookingsystem-7201e.firebaseapp.com",
+            databaseURL: "https://classbookingsystem-7201e-default-rtdb.firebaseio.com/",
             projectId: "classbookingsystem-7201e",
             storageBucket: "classbookingsystem-7201e.appspot.com",
             messagingSenderId: "830823823368",
@@ -292,6 +367,11 @@
                 
                 btn.classList.add('active');
                 document.getElementById(tabId).classList.add('active');
+                
+                // If responses tab is clicked, load responses
+                if (tabId === 'responses') {
+                    loadResponses();
+                }
             });
         });
         
@@ -310,7 +390,7 @@
             const inquiryData = {
                 name,
                 class: studentClass,
-                email, // This will be stored in Firebase despite the requirement (needed for admin to reply)
+                email,
                 message,
                 status: 'pending',
                 timestamp: firebase.database.ServerValue.TIMESTAMP
@@ -356,7 +436,7 @@
             const appointmentData = {
                 name,
                 class: studentClass,
-                email, // This will be stored in Firebase despite the requirement (needed for admin to confirm)
+                email,
                 reason,
                 status: 'requested',
                 timestamp: firebase.database.ServerValue.TIMESTAMP
@@ -386,6 +466,125 @@
                     }, 5000);
                 });
         });
+        
+        // Load responses for the current user
+        function loadResponses() {
+            const email = prompt("Please enter your email to view your responses:");
+            
+            if (!email) return;
+            
+            // Load inquiry responses
+            database.ref('inquiries').orderByChild('email').equalTo(email).once('value')
+                .then((snapshot) => {
+                    const inquiryResponsesContainer = document.getElementById('inquiry-responses');
+                    const noInquiryResponses = document.getElementById('no-inquiry-responses');
+                    
+                    inquiryResponsesContainer.innerHTML = '';
+                    
+                    if (!snapshot.exists()) {
+                        noInquiryResponses.style.display = 'block';
+                        return;
+                    }
+                    
+                    noInquiryResponses.style.display = 'none';
+                    
+                    snapshot.forEach((childSnapshot) => {
+                        const inquiry = childSnapshot.val();
+                        const inquiryId = childSnapshot.key;
+                        const date = new Date(inquiry.timestamp);
+                        
+                        const responseCard = document.createElement('div');
+                        responseCard.className = 'response-card';
+                        
+                        let statusBadge = '';
+                        let replyContent = '';
+                        
+                        if (inquiry.status === 'replied' && inquiry.reply) {
+                            statusBadge = `<span class="status-badge status-replied">Replied</span>`;
+                            replyContent = `
+                                <div class="response-content">
+                                    <strong>Reply:</strong>
+                                    <p>${inquiry.reply}</p>
+                                </div>
+                            `;
+                        } else {
+                            statusBadge = `<span class="status-badge status-pending">Pending</span>`;
+                        }
+                        
+                        responseCard.innerHTML = `
+                            <div class="response-header">
+                                <div class="response-title">Inquiry #${inquiryId.substring(0, 6)}</div>
+                                <div class="response-date">${date.toLocaleString()}</div>
+                            </div>
+                            <div class="response-content">
+                                <strong>Your Message:</strong>
+                                <p>${inquiry.message}</p>
+                            </div>
+                            ${replyContent}
+                            ${statusBadge}
+                        `;
+                        
+                        inquiryResponsesContainer.appendChild(responseCard);
+                    });
+                });
+            
+            // Load appointment responses
+            database.ref('appointments').orderByChild('email').equalTo(email).once('value')
+                .then((snapshot) => {
+                    const appointmentResponsesContainer = document.getElementById('appointment-responses');
+                    const noAppointmentResponses = document.getElementById('no-appointment-responses');
+                    
+                    appointmentResponsesContainer.innerHTML = '';
+                    
+                    if (!snapshot.exists()) {
+                        noAppointmentResponses.style.display = 'block';
+                        return;
+                    }
+                    
+                    noAppointmentResponses.style.display = 'none';
+                    
+                    snapshot.forEach((childSnapshot) => {
+                        const appointment = childSnapshot.val();
+                        const appointmentId = childSnapshot.key;
+                        const date = new Date(appointment.timestamp);
+                        
+                        const responseCard = document.createElement('div');
+                        responseCard.className = 'response-card';
+                        
+                        let statusBadge = '';
+                        let detailsContent = '';
+                        
+                        if (appointment.status === 'approved') {
+                            statusBadge = `<span class="status-badge status-approved">Approved</span>`;
+                            detailsContent = `
+                                <div class="response-content">
+                                    <strong>Scheduled Time:</strong>
+                                    <p>${appointment.scheduledDate} at ${appointment.scheduledTime}</p>
+                                </div>
+                            `;
+                        } else if (appointment.status === 'rejected') {
+                            statusBadge = `<span class="status-badge status-rejected">Rejected</span>`;
+                        } else {
+                            statusBadge = `<span class="status-badge status-pending">Pending</span>`;
+                        }
+                        
+                        responseCard.innerHTML = `
+                            <div class="response-header">
+                                <div class="response-title">Appointment #${appointmentId.substring(0, 6)}</div>
+                                <div class="response-date">${date.toLocaleString()}</div>
+                            </div>
+                            <div class="response-content">
+                                <strong>Reason:</strong>
+                                <p>${appointment.reason}</p>
+                            </div>
+                            ${detailsContent}
+                            ${statusBadge}
+                        `;
+                        
+                        appointmentResponsesContainer.appendChild(responseCard);
+                    });
+                });
+        }
     </script>
 </body>
 </html>

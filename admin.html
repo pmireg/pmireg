@@ -17,7 +17,7 @@
             --dark-color: #212529;
             --success-color: #4bb543;
             --error-color: #ff3333;
-            --warning-color: #ffcc00;
+            --warning-color: #ffc107;
         }
         
         * {
@@ -154,6 +154,11 @@
             color: var(--error-color);
         }
         
+        .status-replied {
+            background-color: rgba(67, 97, 238, 0.2);
+            color: var(--primary-color);
+        }
+        
         .btn {
             padding: 8px 15px;
             border: none;
@@ -182,9 +187,20 @@
             color: white;
         }
         
+        .btn-warning {
+            background-color: var(--warning-color);
+            color: var(--dark-color);
+        }
+        
         .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
         }
         
         .modal {
@@ -300,6 +316,35 @@
             margin-top: 20px;
         }
         
+        .confirmation-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .confirmation-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+        
+        .confirmation-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
         footer {
             text-align: center;
             padding: 20px;
@@ -327,6 +372,11 @@
             
             .time-slots {
                 grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                gap: 5px;
             }
         }
     </style>
@@ -435,6 +485,17 @@
         </div>
     </div>
     
+    <!-- Delete Confirmation Modal -->
+    <div id="confirmation-modal" class="confirmation-modal">
+        <div class="confirmation-content">
+            <h3 id="confirmation-message">Are you sure you want to delete this record?</h3>
+            <div class="confirmation-buttons">
+                <button class="btn btn-danger" id="confirm-delete">Delete</button>
+                <button class="btn btn-primary" id="cancel-delete">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
     <footer>
         <div class="container">
             <p>&copy; 2023 Class Inquiry System. All rights reserved.</p>
@@ -446,6 +507,7 @@
         const firebaseConfig = {
             apiKey: "AIzaSyCZGlSN6qQT0W48uTPPaZxC-pu1fL8bjtY",
             authDomain: "classbookingsystem-7201e.firebaseapp.com",
+            databaseURL: "https://classbookingsystem-7201e-default-rtdb.firebaseio.com/",
             projectId: "classbookingsystem-7201e",
             storageBucket: "classbookingsystem-7201e.appspot.com",
             messagingSenderId: "830823823368",
@@ -474,6 +536,7 @@
         // Modal functionality
         const replyModal = document.getElementById('reply-modal');
         const scheduleModal = document.getElementById('schedule-modal');
+        const confirmationModal = document.getElementById('confirmation-modal');
         const closeBtns = document.querySelectorAll('.close-btn, .btn-danger');
         
         function openModal(modal) {
@@ -492,8 +555,21 @@
                     closeModal(replyModal);
                 } else if (btn.id === 'cancel-schedule' || btn.classList.contains('close-btn') && btn.closest('#schedule-modal')) {
                     closeModal(scheduleModal);
+                } else if (btn.id === 'cancel-delete') {
+                    closeModal(confirmationModal);
                 }
             });
+        });
+        
+        // Close modal when clicking outside
+        window.addEventListener('click', (e) => {
+            if (e.target === replyModal) {
+                closeModal(replyModal);
+            } else if (e.target === scheduleModal) {
+                closeModal(scheduleModal);
+            } else if (e.target === confirmationModal) {
+                closeModal(confirmationModal);
+            }
         });
         
         // Time slot selection
@@ -508,7 +584,7 @@
             });
         });
         
-        // Load inquiries
+        // Load inquiries with delete button
         const inquiriesTable = document.getElementById('inquiries-table').querySelector('tbody');
         let currentInquiryId = null;
         
@@ -530,13 +606,18 @@
                     <td><span class="status status-${inquiry.status}">${inquiry.status}</span></td>
                     <td>${date.toLocaleString()}</td>
                     <td>
-                        ${inquiry.status === 'pending' ? `
-                            <button class="btn btn-primary reply-btn" data-id="${inquiryId}">
-                                <i class="fas fa-reply"></i> Reply
+                        <div class="action-buttons">
+                            ${inquiry.status === 'pending' ? `
+                                <button class="btn btn-primary reply-btn" data-id="${inquiryId}">
+                                    <i class="fas fa-reply"></i> Reply
+                                </button>
+                            ` : `
+                                <span>Replied</span>
+                            `}
+                            <button class="btn btn-warning delete-btn" data-id="${inquiryId}" data-type="inquiry">
+                                <i class="fas fa-trash"></i> Delete
                             </button>
-                        ` : `
-                            <span>Replied</span>
-                        `}
+                        </div>
                     </td>
                 `;
                 
@@ -548,6 +629,15 @@
                 btn.addEventListener('click', (e) => {
                     currentInquiryId = e.target.closest('.reply-btn').getAttribute('data-id');
                     openModal(replyModal);
+                });
+            });
+            
+            // Add event listeners to delete buttons
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const id = e.target.closest('.delete-btn').getAttribute('data-id');
+                    const type = e.target.closest('.delete-btn').getAttribute('data-type');
+                    showDeleteConfirmation(id, type);
                 });
             });
         });
@@ -578,7 +668,7 @@
             });
         });
         
-        // Load appointments
+        // Load appointments with delete button
         const appointmentsTable = document.getElementById('appointments-table').querySelector('tbody');
         let currentAppointmentId = null;
         
@@ -600,18 +690,23 @@
                     <td><span class="status status-${appointment.status}">${appointment.status}</span></td>
                     <td>${date.toLocaleString()}</td>
                     <td>
-                        ${appointment.status === 'requested' ? `
-                            <button class="btn btn-success approve-btn" data-id="${appointmentId}">
-                                <i class="fas fa-check"></i> Approve
+                        <div class="action-buttons">
+                            ${appointment.status === 'requested' ? `
+                                <button class="btn btn-success approve-btn" data-id="${appointmentId}">
+                                    <i class="fas fa-check"></i> Approve
+                                </button>
+                                <button class="btn btn-danger reject-btn" data-id="${appointmentId}">
+                                    <i class="fas fa-times"></i> Reject
+                                </button>
+                            ` : appointment.status === 'approved' ? `
+                                <span>Scheduled for ${appointment.scheduledDate} at ${appointment.scheduledTime}</span>
+                            ` : `
+                                <span>Rejected</span>
+                            `}
+                            <button class="btn btn-warning delete-btn" data-id="${appointmentId}" data-type="appointment">
+                                <i class="fas fa-trash"></i> Delete
                             </button>
-                            <button class="btn btn-danger reject-btn" data-id="${appointmentId}">
-                                <i class="fas fa-times"></i> Reject
-                            </button>
-                        ` : appointment.status === 'approved' ? `
-                            <span>Scheduled for ${appointment.scheduledDate} at ${appointment.scheduledTime}</span>
-                        ` : `
-                            <span>Rejected</span>
-                        `}
+                        </div>
                     </td>
                 `;
                 
@@ -635,6 +730,15 @@
                             status: 'rejected'
                         });
                     }
+                });
+            });
+            
+            // Add event listeners to delete buttons
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const id = e.target.closest('.delete-btn').getAttribute('data-id');
+                    const type = e.target.closest('.delete-btn').getAttribute('data-type');
+                    showDeleteConfirmation(id, type);
                 });
             });
         });
@@ -679,6 +783,40 @@
             .catch((error) => {
                 alert('Error scheduling appointment: ' + error.message);
             });
+        });
+        
+        // Delete confirmation functionality
+        const confirmDeleteBtn = document.getElementById('confirm-delete');
+        const cancelDeleteBtn = document.getElementById('cancel-delete');
+        const confirmationMessage = document.getElementById('confirmation-message');
+        
+        let recordToDelete = null;
+        let recordType = null;
+        
+        function showDeleteConfirmation(id, type) {
+            recordToDelete = id;
+            recordType = type;
+            confirmationMessage.textContent = `Are you sure you want to delete this ${type} record? This action cannot be undone.`;
+            confirmationModal.style.display = 'flex';
+        }
+        
+        confirmDeleteBtn.addEventListener('click', () => {
+            if (recordToDelete && recordType) {
+                database.ref(`${recordType}s/${recordToDelete}`).remove()
+                    .then(() => {
+                        alert('Record deleted successfully');
+                        confirmationModal.style.display = 'none';
+                    })
+                    .catch((error) => {
+                        alert('Error deleting record: ' + error.message);
+                    });
+            }
+        });
+        
+        cancelDeleteBtn.addEventListener('click', () => {
+            confirmationModal.style.display = 'none';
+            recordToDelete = null;
+            recordType = null;
         });
     </script>
 </body>
